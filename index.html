@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#F9F8F6" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="우리 가족 알림장" />
+  <title>우리 가족 알림장</title>
+
+  <!-- Google Fonts: Noto Sans KR for high legibility in Korean -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans KR"', 'sans-serif'],
+          },
+          colors: {
+            warmbg: '#F9F8F6',
+            warmborder: '#E7E5E4',
+            waiting: '#EA580C',
+            progress: '#2563EB',
+            done: '#16A34A',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Base senior-friendly typography scaling */
+    html {
+      font-size: 16px;
+      scroll-behavior: smooth;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Smoothly scale all rem-based typography when '크게' mode is enabled */
+    html.font-large {
+      font-size: 19.5px;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #EFECE6;
+      color: #1C1917;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Hide scrollbar for clean mobile feel while keeping scrollability */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Voice listening pulse animation */
+    @keyframes voicePulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+      }
+      50% {
+        box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+      }
+    }
+    .voice-listening {
+      animation: voicePulse 1.4s infinite;
+    }
+
+    /* Toast fade-in-up animation */
+    @keyframes toastSlideUp {
+      from {
+        opacity: 0;
+        transform: translate(-50%, 16px);
+      }
+      to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    }
+    .toast-animate {
+      animation: toastSlideUp 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex justify-center">
+
+  <!-- Mobile-First App Shell (Centered max-w-md on desktop, full-screen on mobile) -->
+  <div id="app-shell" class="w-full max-w-md min-h-screen bg-[#F9F8F6] shadow-2xl flex flex-col relative border-x border-stone-200/80">
+
+    <!-- ==================== TOP HEADER ==================== -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-stone-200 px-4 py-3.5 shadow-sm">
+      <div class="flex items-center justify-between gap-2">
+        <!-- App Title -->
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-9 h-9 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 text-xl shadow-inner" aria-hidden="true">
+            🏡
+          </div>
+          <h1 class="text-[1.2rem] font-extrabold text-stone-900 tracking-tight truncate">
+            우리 가족 알림장
+          </h1>
+        </div>
+
+        <!-- Font Size Toggle Button -->
+        <button
+          id="btn-font-toggle"
+          type="button"
+          class="shrink-0 min-h-[42px] px-3 py-1.5 rounded-xl border-2 border-stone-300 bg-stone-50 hover:bg-stone-100 active:scale-95 transition flex items-center gap-1.5 text-[0.9rem] font-bold text-stone-800"
+          aria-label="글씨 크기 조절"
+        >
+          <span class="text-base font-extrabold">가</span>
+          <span id="font-toggle-label">크게</span>
+        </button>
+      </div>
+
+      <!-- Second Row: Active Family Member Selector Pill & Sync Status -->
+      <div class="mt-3 flex items-center justify-between gap-2">
+        <button
+          id="btn-open-member-modal"
+          type="button"
+          class="min-h-[44px] pl-3 pr-3.5 py-1.5 rounded-full bg-orange-50 border-2 border-orange-200 hover:bg-orange-100 active:scale-95 transition flex items-center gap-2 text-[0.95rem] font-bold text-orange-900 shadow-sm"
+        >
+          <span class="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-bold">나</span>
+          <span>지금 쓰는 분: <strong id="current-member-name" class="text-orange-700 underline decoration-orange-300 underline-offset-2">어머니</strong></span>
+          <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Real-time Sync Badge -->
+        <div id="sync-status-badge" class="text-[0.8rem] font-semibold text-stone-500 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-100">
+          <span id="sync-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+          <span id="sync-text">연결 중...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== MAIN SCROLLABLE CONTENT ==================== -->
+    <main class="flex-1 overflow-y-auto px-4 pt-4 pb-28 space-y-5">
+
+      <!-- ==================== TAB 1: 부탁해요 (REQUESTS) ==================== -->
+      <section id="tab-requests" class="space-y-5">
+
+        <!-- Quick One-Touch Request Section -->
+        <div class="bg-white rounded-3xl p-4 border border-stone-200 shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-[1.1rem] font-extrabold text-stone-900">자주 하는 부탁</h2>
+            <span class="text-[0.85rem] font-semibold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full">누르면 바로 등록</span>
+          </div>
+          <div id="preset-grid" class="grid grid-cols-2 gap-2.5">
+            <!-- Preset buttons injected by JS -->
+          </div>
+        </div>
+
+        <!-- Custom Request Input Card -->
+        <div class="bg-white rounded-3xl p-4 border border-stone-200 shadow-sm">
+          <h2 class="text-[1.1rem] font-extrabold text-stone-900 mb-3 flex items-center gap-1.5">
+            <span class="text-orange-600 text-xl">+</span> 새 부탁 쓰기
+          </h2>
+          <textarea
+            id="custom-request-input"
+            rows="2"
+            placeholder="예: 두부랑 계란 사다 주세요"
+            class="w-full rounded-2xl border-2 border-stone-300 bg-[#F9F8F6] px-4 py-3 text-[1.05rem] text-stone-900 placeholder:text-stone-400 focus:outline-none focus:border-orange-500 focus:bg-white transition resize-none"
+          ></textarea>
+
+          <div class="mt-3 grid grid-cols-2 gap-2.5">
+            <!-- Voice Input Button (Web Speech API ko-KR) -->
+            <button
+              id="btn-voice-main"
+              type="button"
+              class="min-h-[54px] rounded-2xl border-2 border-stone-300 bg-stone-50 hover:bg-stone-100 active:scale-[0.98] transition flex items-center justify-center gap-2 text-[1rem] font-bold text-stone-800 px-3"
+            >
+              <span class="text-xl">🎤</span>
+              <span id="btn-voice-main-label">말로 쓰기</span>
+            </button>
+
+            <!-- Submit Button -->
+            <button
+              id="btn-submit-request"
+              type="button"
+              class="min-h-[54px] rounded-2xl bg-[#EA580C] hover:bg-orange-700 active:scale-[0.98] transition flex items-center justify-center gap-1.5 text-[1.05rem] font-extrabold text-white shadow-md shadow-orange-600/20 px-3"
+            >
+              <span>부탁 올리기</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active Requests List -->
+        <div>
+          <div class="flex items-center justify-between mb-3 px-1">
+            <h2 class="text-[1.15rem] font-extrabold text-stone-900 flex items-center gap-2">
+              올라온 부탁
+              <span id="active-requests-count" class="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-orange-600 text-white text-[0.9rem] font-bold">0</span>
+            </h2>
+          </div>
+
+          <div id="active-requests-list" class="space-y-3.5">
+            <!-- Active request cards injected by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 2: 가족 일정 (CALENDAR) ==================== -->
+      <section id="tab-calendar" class="hidden space-y-5">
+
+        <!-- Prominent Add Schedule CTA -->
+        <button
+          id="btn-open-schedule-modal"
+          type="button"
+          class="w-full min-h-[58px] rounded-2xl bg-[#EA580C] hover:bg-orange-700 active:scale-[0.98] transition text-white text-[1.1rem] font-extrabold shadow-md shadow-orange-600/20 flex items-center justify-center gap-2"
+        >
+          <span class="text-2xl leading-none">+</span>
+          <span>새 일정 넣기</span>
+        </button>
+
+        <!-- Monthly Calendar Card -->
+        <div class="bg-white rounded-3xl p-4 border border-stone-200 shadow-sm">
+          <!-- Calendar Month Navigation -->
+          <div class="flex items-center justify-between mb-4">
+            <button
+              id="btn-prev-month"
+              type="button"
+              class="min-h-[46px] px-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 active:scale-95 transition text-[0.95rem] font-bold text-stone-800"
+            >
+              ◀ 이전 달
+            </button>
+            <h2 id="calendar-month-title" class="text-[1.2rem] font-extrabold text-stone-900">
+              2026년 11월
+            </h2>
+            <button
+              id="btn-next-month"
+              type="button"
+              class="min-h-[46px] px-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 active:scale-95 transition text-[0.95rem] font-bold text-stone-800"
+            >
+              다음 달 ▶
+            </button>
+          </div>
+
+          <!-- Weekday Labels -->
+          <div class="grid grid-cols-7 text-center mb-2">
+            <div class="text-[0.9rem] font-bold text-red-600 py-1">일</div>
+            <div class="text-[0.9rem] font-bold text-stone-600 py-1">월</div>
+            <div class="text-[0.9rem] font-bold text-stone-600 py-1">화</div>
+            <div class="text-[0.9rem] font-bold text-stone-600 py-1">수</div>
+            <div class="text-[0.9rem] font-bold text-stone-600 py-1">목</div>
+            <div class="text-[0.9rem] font-bold text-stone-600 py-1">금</div>
+            <div class="text-[0.9rem] font-bold text-blue-600 py-1">토</div>
+          </div>
+
+          <!-- Calendar Days Grid -->
+          <div id="calendar-days-grid" class="grid grid-cols-7 gap-1">
+            <!-- Days injected by JS -->
+          </div>
+
+          <!-- Selected Date Filter Bar (Shown when a specific day is clicked) -->
+          <div id="selected-day-bar" class="hidden mt-3 pt-3 border-t border-stone-200 flex items-center justify-between">
+            <span id="selected-day-label" class="text-[0.95rem] font-bold text-orange-700"></span>
+            <button
+              id="btn-clear-day-filter"
+              type="button"
+              class="min-h-[40px] px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-[0.9rem] font-bold text-stone-700"
+            >
+              전체 일정 보기
+            </button>
+          </div>
+        </div>
+
+        <!-- Upcoming / Filtered Schedule List -->
+        <div>
+          <div class="flex items-center justify-between mb-3 px-1">
+            <h2 id="schedule-list-heading" class="text-[1.15rem] font-extrabold text-stone-900">
+              다가오는 일정
+            </h2>
+          </div>
+          <div id="schedules-list" class="space-y-3">
+            <!-- Schedule cards injected by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== TAB 3: 완료 내역 (COMPLETED) ==================== -->
+      <section id="tab-completed" class="hidden space-y-4">
+        <div class="flex items-center justify-between px-1">
+          <h2 class="text-[1.15rem] font-extrabold text-stone-900 flex items-center gap-2">
+            다 끝난 부탁
+            <span id="completed-requests-count" class="inline-flex items-center justify-center min-w-[28px] h-7 px-2 rounded-full bg-green-600 text-white text-[0.9rem] font-bold">0</span>
+          </h2>
+        </div>
+
+        <div id="completed-requests-list" class="space-y-3.5">
+          <!-- Completed cards injected by JS -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ==================== STICKY BOTTOM NAVIGATION (3 TABS) ==================== -->
+    <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 bg-white border-t-2 border-stone-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] px-2 py-1.5">
+      <div class="grid grid-cols-3 gap-1">
+        <!-- Tab 1: 부탁해요 -->
+        <button
+          id="nav-requests"
+          type="button"
+          data-tab="requests"
+          class="nav-tab-btn relative min-h-[64px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition bg-orange-50 text-orange-700"
+        >
+          <span class="text-2xl leading-none">🙋‍♀️</span>
+          <span class="text-[0.9rem] font-extrabold">부탁해요</span>
+          <span id="nav-badge-requests" class="hidden absolute top-1.5 right-4 min-w-[22px] h-[22px] px-1.5 rounded-full bg-orange-600 text-white text-xs font-extrabold flex items-center justify-center">0</span>
+        </button>
+
+        <!-- Tab 2: 가족 일정 -->
+        <button
+          id="nav-calendar"
+          type="button"
+          data-tab="calendar"
+          class="nav-tab-btn min-h-[64px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition text-stone-600 hover:bg-stone-50"
+        >
+          <span class="text-2xl leading-none">📅</span>
+          <span class="text-[0.9rem] font-bold">가족 일정</span>
+        </button>
+
+        <!-- Tab 3: 완료 내역 -->
+        <button
+          id="nav-completed"
+          type="button"
+          data-tab="completed"
+          class="nav-tab-btn min-h-[64px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition text-stone-600 hover:bg-stone-50"
+        >
+          <span class="text-2xl leading-none">✅</span>
+          <span class="text-[0.9rem] font-bold">완료 내역</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- ==================== MODAL 1: FAMILY MEMBER SELECTOR ==================== -->
+    <div id="modal-member" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
+      <div class="w-full max-w-md bg-white rounded-3xl p-5 shadow-2xl border border-stone-200 max-h-[88vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-[1.2rem] font-extrabold text-stone-900">누가 쓰고 계신가요?</h3>
+          <button type="button" class="close-modal-btn min-w-[44px] min-h-[44px] rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-xl font-bold text-stone-600" data-close="modal-member">✕</button>
+        </div>
+
+        <p class="text-[0.95rem] text-stone-600 mb-4">본인 이름을 누르면 부탁을 올리거나 맡을 때 자동으로 표시됩니다.</p>
+
+        <!-- Member Choice Buttons -->
+        <div id="member-choice-grid" class="grid grid-cols-2 gap-2.5 mb-5">
+          <!-- Injected by JS -->
+        </div>
+
+        <!-- Add Custom Member -->
+        <div class="pt-4 border-t border-stone-200">
+          <label for="new-member-input" class="block text-[0.95rem] font-bold text-stone-800 mb-2">새 가족 이름 추가하기</label>
+          <div class="flex gap-2">
+            <input
+              id="new-member-input"
+              type="text"
+              maxlength="10"
+              placeholder="예: 막내, 사위"
+              class="flex-1 min-h-[50px] rounded-2xl border-2 border-stone-300 px-3.5 text-[1rem] focus:outline-none focus:border-orange-500"
+            />
+            <button
+              id="btn-add-member"
+              type="button"
+              class="min-h-[50px] px-4 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-[0.95rem] shrink-0"
+            >
+              추가
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL 2: QUICK PRESET CONFIRMATION ==================== -->
+    <div id="modal-preset" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
+      <div class="w-full max-w-md bg-white rounded-3xl p-5 shadow-2xl border border-stone-200">
+        <div class="flex items-center justify-between mb-3">
+          <h3 id="preset-modal-title" class="text-[1.25rem] font-extrabold text-stone-900">🛒 장 봐주세요</h3>
+          <button type="button" class="close-modal-btn min-w-[44px] min-h-[44px] rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-xl font-bold text-stone-600" data-close="modal-preset">✕</button>
+        </div>
+
+        <p class="text-[0.95rem] text-stone-600 mb-3">추가로 적고 싶은 내용이 있으면 쓰거나 말씀해 주세요. (안 쓰셔도 바로 올라갑니다)</p>
+
+        <input
+          id="preset-detail-input"
+          type="text"
+          placeholder="예: 두부 한 모, 계란 한 판 (선택)"
+          class="w-full min-h-[52px] rounded-2xl border-2 border-stone-300 bg-[#F9F8F6] px-4 text-[1rem] focus:outline-none focus:border-orange-500 focus:bg-white mb-3"
+        />
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <button
+            id="btn-voice-preset"
+            type="button"
+            class="min-h-[54px] rounded-2xl border-2 border-stone-300 bg-stone-50 hover:bg-stone-100 font-bold text-[1rem] text-stone-800 flex items-center justify-center gap-1.5"
+          >
+            <span>🎤</span>
+            <span id="btn-voice-preset-label">말로 추가</span>
+          </button>
+          <button
+            id="btn-confirm-preset"
+            type="button"
+            class="min-h-[54px] rounded-2xl bg-[#EA580C] hover:bg-orange-700 text-white font-extrabold text-[1.05rem] shadow-md shadow-orange-600/20"
+          >
+            바로 올리기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL 3: ADD SCHEDULE ==================== -->
+    <div id="modal-schedule" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-3">
+      <div class="w-full max-w-md bg-white rounded-3xl p-5 shadow-2xl border border-stone-200 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-[1.25rem] font-extrabold text-stone-900">📅 새 일정 넣기</h3>
+          <button type="button" class="close-modal-btn min-w-[44px] min-h-[44px] rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-xl font-bold text-stone-600" data-close="modal-schedule">✕</button>
+        </div>
+
+        <form id="schedule-form" class="space-y-4">
+          <div>
+            <label for="sched-title" class="block text-[0.95rem] font-bold text-stone-800 mb-1.5">무슨 일정인가요? *</label>
+            <input
+              id="sched-title"
+              type="text"
+              required
+              placeholder="예: 어머니 정형외과 진료"
+              class="w-full min-h-[52px] rounded-2xl border-2 border-stone-300 bg-[#F9F8F6] px-4 text-[1.05rem] focus:outline-none focus:border-orange-500 focus:bg-white"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="sched-date" class="block text-[0.95rem] font-bold text-stone-800 mb-1.5">날짜 *</label>
+              <input
+                id="sched-date"
+                type="date"
+                required
+                class="w-full min-h-[52px] rounded-2xl border-2 border-stone-300 bg-[#F9F8F6] px-3 text-[1rem] focus:outline-none focus:border-orange-500 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label for="sched-time" class="block text-[0.95rem] font-bold text-stone-800 mb-1.5">시간 (선택)</label>
+              <input
+                id="sched-time"
+                type="time"
+                class="w-full min-h-[52px] rounded-2xl border-2 border-stone-300 bg-[#F9F8F6] px-3 text-[1rem] focus:outline-none focus:border-orange-500 focus:bg-white"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[0.95rem] font-bold text-stone-800 mb-2">누구 일정인가요?</label>
+            <div id="sched-member-pills" class="flex flex-wrap gap-2">
+              <!-- Member selector pills injected by JS -->
+            </div>
+          </div>
+
+          <div>
+            <label for="sched-memo" class="block text-[0.95rem] font-bold text-stone-800 mb-1.5">간단 메모 (선택)</label>
+            <input
+              id="sched-memo"
+              type="text"
+              placeholder="예: 처방전 챙기기, 2층 접수"
+              class="w-full min-h-[50px] rounded-2xl border-2 border-stone-300 bg-[#F9F8F6] px-4 text-[1rem] focus:outline-none focus:border-orange-500 focus:bg-white"
+            />
+          </div>
+
+          <div class="pt-2 grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              class="close-modal-btn min-h-[54px] rounded-2xl bg-stone-100 hover:bg-stone-200 font-bold text-[1rem] text-stone-700"
+              data-close="modal-schedule"
+            >
+              닫기
+            </button>
+            <button
+              type="submit"
+              class="min-h-[54px] rounded-2xl bg-[#EA580C] hover:bg-orange-700 text-white font-extrabold text-[1.05rem] shadow-md shadow-orange-600/20"
+            >
+              일정 저장하기
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ==================== MODAL 4: CUSTOM DELETE CONFIRMATION ==================== -->
+    <div id="modal-confirm" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+      <div class="w-full max-w-sm bg-white rounded-3xl p-5 shadow-2xl border border-stone-200 text-center">
+        <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-red-50 text-red-600 flex items-center justify-center text-3xl">
+          🗑️
+        </div>
+        <h3 id="confirm-title" class="text-[1.2rem] font-extrabold text-stone-900 mb-2">정말 지울까요?</h3>
+        <p id="confirm-desc" class="text-[0.95rem] text-stone-600 mb-5">지우면 다시 되돌릴 수 없어요.</p>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button
+            id="btn-confirm-cancel"
+            type="button"
+            class="min-h-[52px] rounded-2xl bg-stone-100 hover:bg-stone-200 font-bold text-[1rem] text-stone-800"
+          >
+            안 지울래요
+          </button>
+          <button
+            id="btn-confirm-ok"
+            type="button"
+            class="min-h-[52px] rounded-2xl bg-red-600 hover:bg-red-700 font-extrabold text-[1rem] text-white"
+          >
+            네, 지울게요
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TOAST NOTIFICATION ==================== -->
+    <div id="toast-container" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm pointer-events-none">
+      <div id="toast-box" class="toast-animate bg-stone-900 text-white px-5 py-3.5 rounded-2xl shadow-xl text-center text-[1rem] font-bold flex items-center justify-center gap-2">
+        <span id="toast-icon">✨</span>
+        <span id="toast-message">알림 메시지</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== APPLICATION LOGIC (FIREBASE + UI) ==================== -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      doc,
+      addDoc,
+      setDoc,
+      getDoc,
+      getDocs,
+      updateDoc,
+      deleteDoc,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    /* =========================================================================
+       1. CONSTANTS & IN-MEMORY STATE
+       ========================================================================= */
+    const DEFAULT_MEMBERS = ['어머니', '첫째', '둘째', '며느리'];
+
+    const QUICK_PRESETS = [
+      { icon: '🛒', label: '장 봐주세요' },
+      { icon: '🏥', label: '병원 같이 가요' },
+      { icon: '📞', label: '전화해 주세요' },
+      { icon: '💊', label: '약 타다 주세요' },
+      { icon: '🔧', label: '집안 수리' },
+      { icon: '🚗', label: '태워다 주세요' },
+    ];
+
+    // Color palettes for family member badges & calendar dots
+    const MEMBER_COLORS = {
+      '어머니': { bg: 'bg-rose-100', text: 'text-rose-800', dot: 'bg-rose-500' },
+      '첫째': { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
+      '둘째': { bg: 'bg-emerald-100', text: 'text-emerald-800', dot: 'bg-emerald-500' },
+      '며느리': { bg: 'bg-purple-100', text: 'text-purple-800', dot: 'bg-purple-500' },
+      '가족 전체': { bg: 'bg-orange-100', text: 'text-orange-800', dot: 'bg-orange-500' },
+    };
+
+    const state = {
+      activeTab: 'requests',          // 'requests' | 'calendar' | 'completed'
+      currentMember: '어머니',         // Active family member using the app
+      isLargeFont: false,             // Font scale toggle
+      members: [...DEFAULT_MEMBERS],  // Synced list of family members
+      requests: [],                   // All requests (waiting, in_progress, completed)
+      schedules: [],                  // All family schedules
+      calYear: new Date().getFullYear(),
+      calMonth: new Date().getMonth(), // 0-indexed
+      selectedDateStr: null,          // YYYY-MM-DD when user clicks a day on calendar
+      selectedPreset: null,           // Currently opened preset modal item
+      selectedSchedMember: '어머니',   // Selected member pill in Add Schedule modal
+      pendingConfirmAction: null,     // Callback for custom confirmation modal
+      isUsingFirebase: false,         // True if Firebase connected successfully
+    };
+
+    // Firebase references
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'family-notice-default';
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+
+    /* =========================================================================
+       2. HELPER UTILITIES
+       ========================================================================= */
+    function getMemberColor(name) {
+      return MEMBER_COLORS[name] || { bg: 'bg-amber-100', text: 'text-amber-800', dot: 'bg-amber-500' };
+    }
+
+    function formatDateYYYYMMDD(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function addDaysToToday(days) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      return formatDateYYYYMMDD(d);
+    }
+
+    function formatRelativeTime(timestamp) {
+      if (!timestamp) return '방금 전';
+      const diffMs = Date.now() - timestamp;
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return '방금 전';
+      if (diffMin < 60) return `${diffMin}분 전`;
+      const diffHour = Math.floor(diffMin / 60);
+      if (diffHour < 24) return `${diffHour}시간 전`;
+      const d = new Date(timestamp);
+      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+    }
+
+    function formatKoreanDateBadge(dateStr) {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      return `${m}월 ${d}일 (${weekdays[dateObj.getDay()]})`;
+    }
+
+    function formatKoreanTime(timeStr) {
+      if (!timeStr) return '';
+      const [hh, mm] = timeStr.split(':').map(Number);
+      const period = hh < 12 ? '오전' : '오후';
+      const displayHour = hh % 12 === 0 ? 12 : hh % 12;
+      return `${period} ${displayHour}시${mm > 0 ? ` ${mm}분` : ''}`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    let toastTimer = null;
+    function showToast(message, icon = '✨') {
+      const container = document.getElementById('toast-container');
+      const msgEl = document.getElementById('toast-message');
+      const iconEl = document.getElementById('toast-icon');
+
+      msgEl.textContent = message;
+      iconEl.textContent = icon;
+      container.classList.remove('hidden');
+
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        container.classList.add('hidden');
+      }, 2800);
+    }
+
+    function setSyncStatus(mode, text) {
+      const dot = document.getElementById('sync-dot');
+      const label = document.getElementById('sync-text');
+      label.textContent = text;
+      dot.className = 'w-2.5 h-2.5 rounded-full ' + (
+        mode === 'live' ? 'bg-green-500' :
+        mode === 'local' ? 'bg-blue-500' : 'bg-amber-400'
+      );
+    }
+
+    /* =========================================================================
+       3. FIREBASE INITIALIZATION & REAL-TIME SYNC (WITH GRACEFUL FALLBACK)
+       ========================================================================= */
+    function getPublicCollection(name) {
+      // Strictly follow RULE 1: /artifacts/{appId}/public/data/{collectionName}
+      return collection(db, 'artifacts', appId, 'public', 'data', name);
+    }
+
+    function getPublicDoc(name, id) {
+      return doc(db, 'artifacts', appId, 'public', 'data', name, id);
+    }
+
+    async function initFirebaseAndData() {
+      try {
+        if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+          throw new Error('Firebase config unavailable - using local session mode');
+        }
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        // Strictly follow RULE 3: Authenticate FIRST before any Firestore operations
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          const cred = await signInWithCustomToken(auth, __initial_auth_token);
+          currentUser = cred.user;
+        } else {
+          const cred = await signInAnonymously(auth);
+          currentUser = cred.user;
+        }
+
+        if (!currentUser) {
+          throw new Error('Authentication failed');
+        }
+
+        state.isUsingFirebase = true;
+        setSyncStatus('live', '가족 실시간 연동 중');
+
+        // Seed realistic Korean sample data only if database is completely empty
+        await seedInitialDataIfEmpty();
+
+        // Start real-time listeners (RULE 2: no complex queries, sort in JS memory)
+        subscribeToFirestore();
+
+      } catch (err) {
+        console.warn('Running in standalone preview mode:', err.message);
+        state.isUsingFirebase = false;
+        setSyncStatus('local', '체험 모드');
+        loadLocalFallbackData();
+        renderAll();
+      }
+    }
+
+    async function seedInitialDataIfEmpty() {
+      if (!currentUser || !db) return;
+      try {
+        const metaRef = getPublicDoc('meta', 'seedStatus');
+        const metaSnap = await getDoc(metaRef);
+        if (metaSnap.exists()) return;
+
+        const reqSnap = await getDocs(getPublicCollection('requests'));
+        const schedSnap = await getDocs(getPublicCollection('schedules'));
+
+        if (reqSnap.empty && schedSnap.empty) {
+          const now = Date.now();
+          await addDoc(getPublicCollection('requests'), {
+            text: '두부랑 계란 사다 주세요',
+            requester: '어머니',
+            status: 'waiting',
+            assignee: null,
+            createdAt: now - 1000 * 60 * 18,
+            completedAt: null,
+          });
+          await addDoc(getPublicCollection('requests'), {
+            text: '거실 전구가 깜빡거려요. 갈아주세요',
+            requester: '어머니',
+            status: 'in_progress',
+            assignee: '첫째',
+            createdAt: now - 1000 * 60 * 95,
+            completedAt: null,
+          });
+          await addDoc(getPublicCollection('schedules'), {
+            title: '어머니 정형외과 진료',
+            date: addDaysToToday(2),
+            time: '10:30',
+            member: '어머니',
+            memo: '처방전 꼭 챙기기',
+            createdAt: now,
+          });
+          await addDoc(getPublicCollection('schedules'), {
+            title: '온 가족 저녁 식사',
+            date: addDaysToToday(5),
+            time: '18:00',
+            member: '가족 전체',
+            memo: '집 근처 한정식당 예약',
+            createdAt: now,
+          });
+        }
+
+        await setDoc(metaRef, { seeded: true, seededAt: Date.now() });
+      } catch (err) {
+        console.error('Seed check error:', err);
+      }
+    }
+
+    function subscribeToFirestore() {
+      if (!currentUser || !db) return;
+
+      // 1. Requests real-time listener
+      onSnapshot(
+        getPublicCollection('requests'),
+        (snapshot) => {
+          state.requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderRequests();
+          renderCompleted();
+          updateBadges();
+        },
+        (error) => {
+          console.error('Requests snapshot error:', error);
+          showToast('부탁 목록을 불러오는 중 문제가 생겼어요.', '⚠️');
+        }
+      );
+
+      // 2. Schedules real-time listener
+      onSnapshot(
+        getPublicCollection('schedules'),
+        (snapshot) => {
+          state.schedules = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          renderCalendar();
+          renderSchedulesList();
+        },
+        (error) => {
+          console.error('Schedules snapshot error:', error);
+          showToast('일정을 불러오는 중 문제가 생겼어요.', '⚠️');
+        }
+      );
+
+      // 3. Custom Family Members listener
+      onSnapshot(
+        getPublicCollection('members'),
+        (snapshot) => {
+          const customNames = snapshot.docs
+            .map(d => d.data().name)
+            .filter(Boolean);
+          const merged = [...DEFAULT_MEMBERS];
+          customNames.forEach(n => {
+            if (!merged.includes(n)) merged.push(n);
+          });
+          state.members = merged;
+          renderMemberModalChoices();
+          renderScheduleMemberPills();
+        },
+        (error) => {
+          console.error('Members snapshot error:', error);
+        }
+      );
+    }
+
+    function loadLocalFallbackData() {
+      const now = Date.now();
+      state.requests = [
+        {
+          id: 'sample-req-1',
+          text: '두부랑 계란 사다 주세요',
+          requester: '어머니',
+          status: 'waiting',
+          assignee: null,
+          createdAt: now - 1000 * 60 * 18,
+          completedAt: null,
+        },
+        {
+          id: 'sample-req-2',
+          text: '거실 전구가 깜빡거려요. 갈아주세요',
+          requester: '어머니',
+          status: 'in_progress',
+          assignee: '첫째',
+          createdAt: now - 1000 * 60 * 95,
+          completedAt: null,
+        },
+      ];
+      state.schedules = [
+        {
+          id: 'sample-sched-1',
+          title: '어머니 정형외과 진료',
+          date: addDaysToToday(2),
+          time: '10:30',
+          member: '어머니',
+          memo: '처방전 꼭 챙기기',
+          createdAt: now,
+        },
+        {
+          id: 'sample-sched-2',
+          title: '온 가족 저녁 식사',
+          date: addDaysToToday(5),
+          time: '18:00',
+          member: '가족 전체',
+          memo: '집 근처 한정식당 예약',
+          createdAt: now,
+        },
+      ];
+    }
+
+    /* =========================================================================
+       4. DATA MUTATIONS (CRUD FOR REQUESTS, SCHEDULES, MEMBERS)
+       ========================================================================= */
+    async function createRequest(text) {
+      const cleanText = text.trim();
+      if (!cleanText) {
+        showToast('부탁할 내용을 먼저 적어주세요.', '✏️');
+        return false;
+      }
+
+      const newReq = {
+        text: cleanText,
+        requester: state.currentMember,
+        status: 'waiting',
+        assignee: null,
+        createdAt: Date.now(),
+        completedAt: null,
+      };
+
+      if (state.isUsingFirebase && currentUser) {
+        try {
+          await addDoc(getPublicCollection('requests'), newReq);
+        } catch (err) {
+          console.error(err);
+          showToast('저장에 실패했어요. 다시 눌러주세요.', '⚠️');
+          return false;
+        }
+      } else {
+        state.requests.unshift({ id: 'local-' + Date.now(), ...newReq });
+        renderRequests();
+        updateBadges();
+      }
+
+      showToast('부탁이 등록되었어요!', '📮');
+      return true;
+    }
+
+    async function updateRequestStatus(id, updates, toastMsg, toastIcon = '✅') {
+      if (state.isUsingFirebase && currentUser) {
+        try {
+          await updateDoc(getPublicDoc('requests', id), updates);
+        } catch (err) {
+          console.error(err);
+          showToast('상태 변경에 실패했어요.', '⚠️');
+          return;
+        }
+      } else {
+        const idx = state.requests.findIndex(r => r.id === id);
+        if (idx !== -1) {
+          state.requests[idx] = { ...state.requests[idx], ...updates };
+          renderRequests();
+          renderCompleted();
+          updateBadges();
+        }
+      }
+      if (toastMsg) showToast(toastMsg, toastIcon);
+    }
+
+    async function removeRequest(id) {
+      if (state.isUsingFirebase && currentUser) {
+        try {
+          await deleteDoc(getPublicDoc('requests', id));
+        } catch (err) {
+          console.error(err);
+          showToast('삭제에 실패했어요.', '⚠️');
+          return;
+        }
+      } else {
+        state.requests = state.requests.filter(r => r.id !== id);
+        renderRequests();
+        renderCompleted();
+        updateBadges();
+      }
+      showToast('부탁을 지웠어요.', '🗑️');
+    }
+
+    async function createSchedule(data) {
+      const newSched = {
+        title: data.title.trim(),
+        date: data.date,
+        time: data.time || '',
+        member: data.member || '가족 전체',
+        memo: (data.memo || '').trim(),
+        createdAt: Date.now(),
+      };
+
+      if (state.isUsingFirebase && currentUser) {
+        try {
+          await addDoc(getPublicCollection('schedules'), newSched);
+        } catch (err) {
+          console.error(err);
+          showToast('일정 저장에 실패했어요.', '⚠️');
+          return false;
+        }
+      } else {
+        state.schedules.push({ id: 'sched-' + Date.now(), ...newSched });
+        renderCalendar();
+        renderSchedulesList();
+      }
+
+      showToast('새 일정이 등록되었어요!', '📅');
+      return true;
+    }
+
+    async function removeSchedule(id) {
+      if (state.isUsingFirebase && currentUser) {
+        try {
+          await deleteDoc(getPublicDoc('schedules', id));
+        } catch (err) {
+          console.error(err);
+          showToast('일정 삭제에 실패했어요.', '⚠️');
+          return;
+        }
+      } else {
+        state.schedules = state.schedules.filter(s => s.id !== id);
+        renderCalendar();
+        renderSchedulesList();
+      }
+      showToast('일정을 지웠어요.', '🗑️');
+    }
+
+    async function addFamilyMember(name) {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      if (state.members.includes(trimmed)) {
+        selectCurrentMember(trimmed);
+        return;
+      }
+
+      if (state.isUsingFirebase && currentUser) {
+        try {
+          await addDoc(getPublicCollection('members'), { name: trimmed, createdAt: Date.now() });
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        state.members.push(trimmed);
+        renderMemberModalChoices();
+        renderScheduleMemberPills();
+      }
+
+      selectCurrentMember(trimmed);
+      showToast(`'${trimmed}' 님이 가족에 추가되었어요!`, '👨‍👩‍👧‍👦');
+    }
+
+    /* =========================================================================
+       5. RENDERING FUNCTIONS
+       ========================================================================= */
+    function renderAll() {
+      renderPresets();
+      renderRequests();
+      renderCompleted();
+      renderCalendar();
+      renderSchedulesList();
+      renderMemberModalChoices();
+      renderScheduleMemberPills();
+      updateBadges();
+    }
+
+    function renderPresets() {
+      const grid = document.getElementById('preset-grid');
+      grid.innerHTML = QUICK_PRESETS.map((p, idx) => `
+        <button
+          type="button"
+          data-preset-idx="${idx}"
+          class="preset-btn min-h-[58px] px-3 py-2.5 rounded-2xl bg-[#F9F8F6] hover:bg-orange-50 active:scale-[0.97] border-2 border-stone-200 hover:border-orange-300 transition flex items-center justify-center gap-2 text-[0.98rem] font-bold text-stone-800 shadow-2xs"
+        >
+          <span class="text-xl shrink-0">${p.icon}</span>
+          <span class="truncate">${escapeHtml(p.label)}</span>
+        </button>
+      `).join('');
+
+      grid.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const preset = QUICK_PRESETS[Number(btn.dataset.presetIdx)];
+          openPresetModal(preset);
+        });
+      });
+    }
+
+    function renderRequests() {
+      const listEl = document.getElementById('active-requests-list');
+      const countEl = document.getElementById('active-requests-count');
+
+      // Filter active (waiting or in_progress) and sort newest first
+      const active = state.requests
+        .filter(r => r.status !== 'completed')
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      countEl.textContent = active.length;
+
+      if (active.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 border border-stone-200 text-center">
+            <div class="text-4xl mb-2">🌿</div>
+            <p class="text-[1.05rem] font-bold text-stone-700">지금 올라온 부탁이 없어요</p>
+            <p class="text-[0.9rem] text-stone-500 mt-1">위의 버튼을 눌러 편하게 부탁을 올려보세요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = active.map(req => {
+        const isWaiting = req.status === 'waiting';
+        const memberColor = getMemberColor(req.requester);
+
+        const statusBadge = isWaiting
+          ? `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-orange-100 text-[#EA580C] text-[0.88rem] font-extrabold border border-orange-200">🟠 아직 안 함</span>`
+          : `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-[#2563EB] text-[0.88rem] font-extrabold border border-blue-200">🔵 ${escapeHtml(req.assignee)}가 맡음</span>`;
+
+        const actionButtons = isWaiting
+          ? `
+            <button type="button" data-action="claim" data-id="${req.id}" class="req-action-btn min-h-[52px] rounded-2xl bg-[#2563EB] hover:bg-blue-700 active:scale-[0.98] transition text-white font-extrabold text-[0.98rem] flex items-center justify-center gap-1.5 shadow-sm">
+              <span>🙋</span><span>내가 맡을게요</span>
+            </button>
+            <button type="button" data-action="complete" data-id="${req.id}" class="req-action-btn min-h-[52px] rounded-2xl bg-[#16A34A] hover:bg-green-700 active:scale-[0.98] transition text-white font-extrabold text-[0.98rem] flex items-center justify-center gap-1.5 shadow-sm">
+              <span>✅</span><span>다 했어요</span>
+            </button>
+          `
+          : `
+            <button type="button" data-action="complete" data-id="${req.id}" class="req-action-btn min-h-[52px] rounded-2xl bg-[#16A34A] hover:bg-green-700 active:scale-[0.98] transition text-white font-extrabold text-[0.98rem] flex items-center justify-center gap-1.5 shadow-sm">
+              <span>✅</span><span>다 했어요</span>
+            </button>
+            <button type="button" data-action="unclaim" data-id="${req.id}" class="req-action-btn min-h-[52px] rounded-2xl bg-stone-100 hover:bg-stone-200 active:scale-[0.98] transition text-stone-700 font-bold text-[0.98rem] flex items-center justify-center gap-1.5 border border-stone-300">
+              <span>↩️</span><span>맡기 취소</span>
+            </button>
+          `;
+
+        return `
+          <article class="bg-white rounded-3xl p-4 border-2 ${isWaiting ? 'border-orange-200/80' : 'border-blue-200/80'} shadow-sm">
+            <!-- Top Row: Requester + Time + Delete -->
+            <div class="flex items-center justify-between gap-2 mb-2.5">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-2.5 py-1 rounded-xl ${memberColor.bg} ${memberColor.text} text-[0.88rem] font-extrabold">
+                  ${escapeHtml(req.requester)}
+                </span>
+                <span class="text-[0.85rem] font-medium text-stone-500">
+                  ${formatRelativeTime(req.createdAt)}
+                </span>
+              </div>
+              <button
+                type="button"
+                data-action="delete"
+                data-id="${req.id}"
+                class="req-action-btn min-w-[40px] min-h-[40px] rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-[0.85rem] font-bold transition"
+                aria-label="부탁 지우기"
+              >
+                삭제
+              </button>
+            </div>
+
+            <!-- Status Badge -->
+            <div class="mb-2.5">
+              ${statusBadge}
+            </div>
+
+            <!-- Request Content -->
+            <p class="text-[1.2rem] font-bold text-stone-900 leading-snug mb-4 break-keep">
+              ${escapeHtml(req.text)}
+            </p>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 gap-2.5">
+              ${actionButtons}
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      // Attach listeners
+      listEl.querySelectorAll('.req-action-btn').forEach(btn => {
+        btn.addEventListener('click', () => handleRequestAction(btn.dataset.action, btn.dataset.id));
+      });
+    }
+
+    function renderCompleted() {
+      const listEl = document.getElementById('completed-requests-list');
+      const countEl = document.getElementById('completed-requests-count');
+
+      const completed = state.requests
+        .filter(r => r.status === 'completed')
+        .sort((a, b) => (b.completedAt || b.createdAt || 0) - (a.completedAt || a.createdAt || 0));
+
+      countEl.textContent = completed.length;
+
+      if (completed.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 border border-stone-200 text-center">
+            <div class="text-4xl mb-2">📋</div>
+            <p class="text-[1.05rem] font-bold text-stone-700">아직 완료된 부탁이 없어요</p>
+            <p class="text-[0.9rem] text-stone-500 mt-1">부탁을 처리하고 '다 했어요'를 누르면 여기에 모여요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = completed.map(req => {
+        const memberColor = getMemberColor(req.requester);
+        return `
+          <article class="bg-white rounded-3xl p-4 border border-green-200 shadow-sm">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-[#16A34A] text-[0.88rem] font-extrabold">
+                ✅ 다 끝남
+              </span>
+              <button
+                type="button"
+                data-action="delete"
+                data-id="${req.id}"
+                class="comp-action-btn min-w-[40px] min-h-[40px] rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-[0.85rem] font-bold"
+              >
+                삭제
+              </button>
+            </div>
+
+            <p class="text-[1.12rem] font-bold text-stone-700 line-through decoration-stone-400 mb-3 break-keep">
+              ${escapeHtml(req.text)}
+            </p>
+
+            <div class="bg-[#F9F8F6] rounded-2xl p-3 text-[0.9rem] text-stone-600 space-y-1 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-stone-500">부탁한 분:</span>
+                <span class="px-2 py-0.5 rounded-lg ${memberColor.bg} ${memberColor.text} font-bold text-[0.85rem]">${escapeHtml(req.requester)}</span>
+              </div>
+              <div>
+                <span class="font-semibold text-stone-500">해결한 분:</span>
+                <strong class="text-stone-800">${escapeHtml(req.assignee || '가족')}</strong>
+                <span class="text-stone-400 mx-1">·</span>
+                <span>${formatRelativeTime(req.completedAt)}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              data-action="reopen"
+              data-id="${req.id}"
+              class="comp-action-btn w-full min-h-[48px] rounded-2xl bg-stone-100 hover:bg-stone-200 active:scale-[0.98] transition text-stone-800 font-bold text-[0.95rem] flex items-center justify-center gap-1.5"
+            >
+              <span>🔄</span><span>다시 부탁 올리기</span>
+            </button>
+          </article>
+        `;
+      }).join('');
+
+      listEl.querySelectorAll('.comp-action-btn').forEach(btn => {
+        btn.addEventListener('click', () => handleRequestAction(btn.dataset.action, btn.dataset.id));
+      });
+    }
+
+    function renderCalendar() {
+      const titleEl = document.getElementById('calendar-month-title');
+      const gridEl = document.getElementById('calendar-days-grid');
+
+      const year = state.calYear;
+      const month = state.calMonth;
+      titleEl.textContent = `${year}년 ${month + 1}월`;
+
+      const firstDayOfWeek = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const todayStr = formatDateYYYYMMDD(new Date());
+
+      // Map dates -> array of member dot colors
+      const eventsByDate = {};
+      state.schedules.forEach(s => {
+        if (!eventsByDate[s.date]) eventsByDate[s.date] = [];
+        eventsByDate[s.date].push(getMemberColor(s.member).dot);
+      });
+
+      let html = '';
+      // Leading empty cells
+      for (let i = 0; i < firstDayOfWeek; i++) {
+        html += `<div class="min-h-[50px]"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayOfWeek = (firstDayOfWeek + day - 1) % 7;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === state.selectedDateStr;
+        const dots = eventsByDate[dateStr] || [];
+
+        let textColor = 'text-stone-800';
+        if (dayOfWeek === 0) textColor = 'text-red-600';
+        if (dayOfWeek === 6) textColor = 'text-blue-600';
+
+        let cellStyle = 'bg-transparent hover:bg-stone-100';
+        if (isSelected) {
+          cellStyle = 'bg-[#EA580C] text-white shadow-md';
+          textColor = 'text-white';
+        } else if (isToday) {
+          cellStyle = 'bg-orange-100 ring-2 ring-orange-400';
+        }
+
+        const dotsHtml = dots.slice(0, 3).map(dotClass =>
+          `<span class="w-2 h-2 rounded-full ${isSelected ? 'bg-white' : dotClass}"></span>`
+        ).join('');
+
+        html += `
+          <button
+            type="button"
+            data-date="${dateStr}"
+            class="cal-day-btn min-h-[50px] rounded-2xl flex flex-col items-center justify-center gap-1 transition active:scale-95 ${cellStyle}"
+          >
+            <span class="text-[0.98rem] font-extrabold leading-none ${textColor}">${day}</span>
+            <div class="flex items-center justify-center gap-0.5 h-2">
+              ${dotsHtml}
+            </div>
+          </button>
+        `;
+      }
+
+      gridEl.innerHTML = html;
+
+      // Selected day filter bar visibility
+      const selectedBar = document.getElementById('selected-day-bar');
+      const selectedLabel = document.getElementById('selected-day-label');
+      if (state.selectedDateStr) {
+        selectedBar.classList.remove('hidden');
+        selectedLabel.textContent = `${formatKoreanDateBadge(state.selectedDateStr)} 일정만 보는 중`;
+      } else {
+        selectedBar.classList.add('hidden');
+      }
+
+      // Click listeners for calendar days
+      gridEl.querySelectorAll('.cal-day-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const clickedDate = btn.dataset.date;
+          state.selectedDateStr = state.selectedDateStr === clickedDate ? null : clickedDate;
+          renderCalendar();
+          renderSchedulesList();
+        });
+      });
+    }
+
+    function renderSchedulesList() {
+      const listEl = document.getElementById('schedules-list');
+      const headingEl = document.getElementById('schedule-list-heading');
+      const todayStr = formatDateYYYYMMDD(new Date());
+
+      let filtered = [...state.schedules];
+      if (state.selectedDateStr) {
+        headingEl.textContent = `${formatKoreanDateBadge(state.selectedDateStr)} 일정`;
+        filtered = filtered.filter(s => s.date === state.selectedDateStr);
+      } else {
+        headingEl.textContent = '다가오는 일정';
+        filtered = filtered.filter(s => s.date >= todayStr);
+      }
+
+      // Sort chronologically by date then time
+      filtered.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        return (a.time || '').localeCompare(b.time || '');
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-white rounded-3xl p-7 border border-stone-200 text-center">
+            <div class="text-4xl mb-2">🗓️</div>
+            <p class="text-[1.05rem] font-bold text-stone-700">등록된 일정이 없어요</p>
+            <p class="text-[0.9rem] text-stone-500 mt-1">위의 '+ 새 일정 넣기' 버튼을 눌러 추가해 보세요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(sched => {
+        const mColor = getMemberColor(sched.member);
+        const timeText = sched.time ? formatKoreanTime(sched.time) : '시간 미정';
+        return `
+          <article class="bg-white rounded-3xl p-4 border border-stone-200 shadow-sm">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="px-3 py-1 rounded-xl bg-orange-50 text-orange-800 border border-orange-200 text-[0.92rem] font-extrabold">
+                  ${formatKoreanDateBadge(sched.date)}
+                </span>
+                <span class="px-2.5 py-1 rounded-xl ${mColor.bg} ${mColor.text} text-[0.88rem] font-bold">
+                  ${escapeHtml(sched.member)}
+                </span>
+              </div>
+              <button
+                type="button"
+                data-sched-id="${sched.id}"
+                class="sched-delete-btn min-w-[40px] min-h-[40px] rounded-xl text-stone-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center text-[0.85rem] font-bold"
+              >
+                삭제
+              </button>
+            </div>
+
+            <h3 class="text-[1.18rem] font-extrabold text-stone-900 mb-1 break-keep">
+              ${escapeHtml(sched.title)}
+            </h3>
+
+            <p class="text-[0.95rem] font-semibold text-stone-600 flex items-center gap-1.5">
+              <span>⏰</span><span>${timeText}</span>
+            </p>
+
+            ${sched.memo ? `
+              <div class="mt-2.5 bg-[#F9F8F6] rounded-2xl px-3.5 py-2.5 text-[0.92rem] text-stone-700 border border-stone-200/70">
+                📝 ${escapeHtml(sched.memo)}
+              </div>
+            ` : ''}
+          </article>
+        `;
+      }).join('');
+
+      listEl.querySelectorAll('.sched-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.schedId;
+          openConfirmModal('이 일정을 지울까요?', '가족 달력에서 일정이 사라집니다.', () => removeSchedule(id));
+        });
+      });
+    }
+
+    function renderMemberModalChoices() {
+      const grid = document.getElementById('member-choice-grid');
+      grid.innerHTML = state.members.map(name => {
+        const isCurrent = name === state.currentMember;
+        return `
+          <button
+            type="button"
+            data-member="${escapeHtml(name)}"
+            class="member-select-btn min-h-[56px] rounded-2xl border-2 font-extrabold text-[1.05rem] transition active:scale-95 flex items-center justify-center gap-2 ${
+              isCurrent
+                ? 'border-orange-500 bg-orange-50 text-orange-800 shadow-sm'
+                : 'border-stone-200 bg-white hover:bg-stone-50 text-stone-800'
+            }"
+          >
+            <span>${isCurrent ? '✔' : '👤'}</span>
+            <span>${escapeHtml(name)}</span>
+          </button>
+        `;
+      }).join('');
+
+      grid.querySelectorAll('.member-select-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectCurrentMember(btn.dataset.member);
+          closeModal('modal-member');
+        });
+      });
+    }
+
+    function renderScheduleMemberPills() {
+      const container = document.getElementById('sched-member-pills');
+      const options = ['가족 전체', ...state.members];
+
+      container.innerHTML = options.map(name => {
+        const isSelected = name === state.selectedSchedMember;
+        return `
+          <button
+            type="button"
+            data-sched-member="${escapeHtml(name)}"
+            class="sched-member-pill min-h-[44px] px-3.5 rounded-2xl border-2 text-[0.95rem] font-bold transition ${
+              isSelected
+                ? 'border-orange-500 bg-orange-50 text-orange-800'
+                : 'border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
+            }"
+          >
+            ${escapeHtml(name)}
+          </button>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.sched-member-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.selectedSchedMember = btn.dataset.schedMember;
+          renderScheduleMemberPills();
+        });
+      });
+    }
+
+    function updateBadges() {
+      const activeCount = state.requests.filter(r => r.status !== 'completed').length;
+      const badge = document.getElementById('nav-badge-requests');
+      if (activeCount > 0) {
+        badge.textContent = activeCount > 99 ? '99+' : activeCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    /* =========================================================================
+       6. INTERACTION HANDLERS
+       ========================================================================= */
+    function handleRequestAction(action, id) {
+      const req = state.requests.find(r => r.id === id);
+      if (!req) return;
+
+      if (action === 'claim') {
+        updateRequestStatus(
+          id,
+          { status: 'in_progress', assignee: state.currentMember },
+          `${req.requester}의 부탁을 ${state.currentMember}님이 맡았어요!`,
+          '🙋'
+        );
+      } else if (action === 'unclaim') {
+        updateRequestStatus(
+          id,
+          { status: 'waiting', assignee: null },
+          '맡기를 취소했어요.',
+          '↩️'
+        );
+      } else if (action === 'complete') {
+        updateRequestStatus(
+          id,
+          {
+            status: 'completed',
+            assignee: req.assignee || state.currentMember,
+            completedAt: Date.now(),
+          },
+          '부탁을 완료 처리했어요! 수고하셨어요 👏',
+          '✅'
+        );
+      } else if (action === 'reopen') {
+        updateRequestStatus(
+          id,
+          { status: 'waiting', assignee: null, completedAt: null },
+          '부탁을 다시 올려두었어요.',
+          '🔄'
+        );
+      } else if (action === 'delete') {
+        openConfirmModal('이 부탁을 지울까요?', `"${req.text}" 내용을 삭제합니다.`, () => removeRequest(id));
+      }
+    }
+
+    function selectCurrentMember(name) {
+      state.currentMember = name;
+      document.getElementById('current-member-name').textContent = name;
+      renderMemberModalChoices();
+      showToast(`지금 쓰는 분이 '${name}' 님으로 바뀌었어요.`, '👤');
+    }
+
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+
+      // Toggle section visibility
+      ['requests', 'calendar', 'completed'].forEach(t => {
+        const sec = document.getElementById(`tab-${t}`);
+        if (t === tabName) sec.classList.remove('hidden');
+        else sec.classList.add('hidden');
+      });
+
+      // Update bottom navigation styling
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        const isTarget = btn.dataset.tab === tabName;
+        if (isTarget) {
+          btn.classList.add('bg-orange-50', 'text-orange-700');
+          btn.classList.remove('text-stone-600');
+        } else {
+          btn.classList.remove('bg-orange-50', 'text-orange-700');
+          btn.classList.add('text-stone-600');
+        }
+      });
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* =========================================================================
+       7. MODALS & VOICE INPUT (WEB SPEECH API ko-KR)
+       ========================================================================= */
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function openPresetModal(preset) {
+      state.selectedPreset = preset;
+      document.getElementById('preset-modal-title').textContent = `${preset.icon} ${preset.label}`;
+      document.getElementById('preset-detail-input').value = '';
+      openModal('modal-preset');
+    }
+
+    function openConfirmModal(title, desc, onConfirm) {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-desc').textContent = desc;
+      state.pendingConfirmAction = onConfirm;
+      openModal('modal-confirm');
+    }
+
+    // Speech Recognition helper (Korean ko-KR)
+    function startVoiceInput(targetInputId, buttonId, labelId, defaultLabel) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showToast('이 기기에서는 말로 쓰기가 지원되지 않아요. 키보드로 입력해 주세요.', '🎤');
+        return;
+      }
+
+      const btn = document.getElementById(buttonId);
+      const label = document.getElementById(labelId);
+      const inputEl = document.getElementById(targetInputId);
+
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ko-KR';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        btn.classList.add('voice-listening', 'bg-red-50', 'border-red-400', 'text-red-700');
+        label.textContent = '듣고 있어요...';
+
+        recognition.onresult = (event) => {
+          const transcript = event.results[0][0].transcript;
+          if (transcript) {
+            inputEl.value = inputEl.value ? `${inputEl.value} ${transcript}` : transcript;
+            showToast('말씀하신 내용을 적었어요!', '🎤');
+          }
+        };
+
+        recognition.onerror = () => {
+          showToast('목소리가 잘 안 들렸어요. 다시 눌러서 말씀해 주세요.', '🎤');
+        };
+
+        recognition.onend = () => {
+          btn.classList.remove('voice-listening', 'bg-red-50', 'border-red-400', 'text-red-700');
+          label.textContent = defaultLabel;
+        };
+
+        recognition.start();
+      } catch (err) {
+        btn.classList.remove('voice-listening', 'bg-red-50', 'border-red-400', 'text-red-700');
+        label.textContent = defaultLabel;
+        showToast('마이크 권한을 허용해 주세요.', '🎤');
+      }
+    }
+
+    /* =========================================================================
+       8. EVENT BINDINGS & STARTUP
+       ========================================================================= */
+    function bindEvents() {
+      // Font size toggle
+      document.getElementById('btn-font-toggle').addEventListener('click', () => {
+        state.isLargeFont = !state.isLargeFont;
+        document.documentElement.classList.toggle('font-large', state.isLargeFont);
+        document.getElementById('font-toggle-label').textContent = state.isLargeFont ? '보통' : '크게';
+        showToast(state.isLargeFont ? '글씨를 크게 키웠어요!' : '글씨를 보통 크기로 바꿨어요.', '🔍');
+      });
+
+      // Bottom tab navigation
+      document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      // Member modal open & add member
+      document.getElementById('btn-open-member-modal').addEventListener('click', () => {
+        renderMemberModalChoices();
+        openModal('modal-member');
+      });
+
+      document.getElementById('btn-add-member').addEventListener('click', () => {
+        const input = document.getElementById('new-member-input');
+        const val = input.value.trim();
+        if (!val) {
+          showToast('추가할 이름을 적어주세요.', '✏️');
+          return;
+        }
+        addFamilyMember(val);
+        input.value = '';
+        closeModal('modal-member');
+      });
+
+      // Custom request submit & voice
+      document.getElementById('btn-submit-request').addEventListener('click', async () => {
+        const input = document.getElementById('custom-request-input');
+        const ok = await createRequest(input.value);
+        if (ok) input.value = '';
+      });
+
+      document.getElementById('btn-voice-main').addEventListener('click', () => {
+        startVoiceInput('custom-request-input', 'btn-voice-main', 'btn-voice-main-label', '말로 쓰기');
+      });
+
+      // Preset modal confirm & voice
+      document.getElementById('btn-voice-preset').addEventListener('click', () => {
+        startVoiceInput('preset-detail-input', 'btn-voice-preset', 'btn-voice-preset-label', '말로 추가');
+      });
+
+      document.getElementById('btn-confirm-preset').addEventListener('click', async () => {
+        if (!state.selectedPreset) return;
+        const detail = document.getElementById('preset-detail-input').value.trim();
+        const fullText = detail
+          ? `${state.selectedPreset.icon} ${state.selectedPreset.label} (${detail})`
+          : `${state.selectedPreset.icon} ${state.selectedPreset.label}`;
+        const ok = await createRequest(fullText);
+        if (ok) closeModal('modal-preset');
+      });
+
+      // Calendar month navigation
+      document.getElementById('btn-prev-month').addEventListener('click', () => {
+        state.calMonth -= 1;
+        if (state.calMonth < 0) {
+          state.calMonth = 11;
+          state.calYear -= 1;
+        }
+        renderCalendar();
+      });
+
+      document.getElementById('btn-next-month').addEventListener('click', () => {
+        state.calMonth += 1;
+        if (state.calMonth > 11) {
+          state.calMonth = 0;
+          state.calYear += 1;
+        }
+        renderCalendar();
+      });
+
+      document.getElementById('btn-clear-day-filter').addEventListener('click', () => {
+        state.selectedDateStr = null;
+        renderCalendar();
+        renderSchedulesList();
+      });
+
+      // Schedule modal open & submit
+      document.getElementById('btn-open-schedule-modal').addEventListener('click', () => {
+        document.getElementById('sched-title').value = '';
+        document.getElementById('sched-date').value = state.selectedDateStr || formatDateYYYYMMDD(new Date());
+        document.getElementById('sched-time').value = '';
+        document.getElementById('sched-memo').value = '';
+        state.selectedSchedMember = state.currentMember;
+        renderScheduleMemberPills();
+        openModal('modal-schedule');
+      });
+
+      document.getElementById('schedule-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('sched-title').value;
+        const date = document.getElementById('sched-date').value;
+        const time = document.getElementById('sched-time').value;
+        const memo = document.getElementById('sched-memo').value;
+
+        if (!title.trim() || !date) {
+          showToast('일정 제목과 날짜를 꼭 입력해 주세요.', '📅');
+          return;
+        }
+
+        const ok = await createSchedule({
+          title,
+          date,
+          time,
+          member: state.selectedSchedMember,
+          memo,
+        });
+
+        if (ok) {
+          // Move calendar view to the newly added schedule's month
+          const [y, m] = date.split('-').map(Number);
+          state.calYear = y;
+          state.calMonth = m - 1;
+          closeModal('modal-schedule');
+        }
+      });
+
+      // Confirm modal buttons
+      document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+        state.pendingConfirmAction = null;
+        closeModal('modal-confirm');
+      });
+
+      document.getElementById('btn-confirm-ok').addEventListener('click', () => {
+        if (typeof state.pendingConfirmAction === 'function') {
+          state.pendingConfirmAction();
+        }
+        state.pendingConfirmAction = null;
+        closeModal('modal-confirm');
+      });
+
+      // Generic modal close buttons & backdrop clicks
+      document.querySelectorAll('.close-modal-btn').forEach(btn => {
+        btn.addEventListener('click', () => closeModal(btn.dataset.close));
+      });
+
+      ['modal-member', 'modal-preset', 'modal-schedule', 'modal-confirm'].forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('click', (e) => {
+          if (e.target === el) closeModal(id);
+        });
+      });
+    }
+
+    // Boot application
+    bindEvents();
+    renderAll();
+    initFirebaseAndData();
+  </script>
+</body>
+</html>
